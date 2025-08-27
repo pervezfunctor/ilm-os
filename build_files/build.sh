@@ -22,4 +22,4 @@ dnf5 install -y virt-install xorriso bridge-utils libguestfs-tools libosinfo \
 
 #### Example for enabling a System Unit File
 
-sudo systemctl enable libvirtd
+systemctl enable libvirtd
