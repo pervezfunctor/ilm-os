@@ -10,8 +10,8 @@ set -ouex pipefail
 # https://mirrors.rpmfusion.org/mirrorlist?path=free/fedora/updates/39/x86_64/repoview/index.html&protocol=https&redirect=1
 
 # this installs a package from fedora repos
-dnf5 install -y virt-install xorriso bridge-utils libguestfs-tools libosinfo \
-  kitty virt-viewer
+dnf5 install -y virt-install xorriso bridge-utils guestfs-tools libosinfo \
+  kitty virt-viewer cloud-utils coreos-installer squashfs-tools bsdtar
 
 # Use a COPR Example:
 #
