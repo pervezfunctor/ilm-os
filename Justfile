@@ -317,3 +317,67 @@ format:
     fi
     # Run shfmt on all Bash scripts
     /usr/bin/find . -iname "*.sh" -type f -exec shfmt --write "{}" ';'
+
+# Image Variants
+bazzite_base_image := "ghcr.io/ublue-os/bazzite-dx-nvidia:latest"
+bluefin_base_image := "ghcr.io/ublue-os/bluefin-dx:latest"
+
+# Build Bazzite Image
+[group('Container')]
+build-bazzite:
+    @just build-container bazzite_base_image
+
+# Rebuild Bazzite Image
+[group('Container')]
+rebuild-bazzite:
+    @just rebuild-container bazzite_base_image
+
+# Build Bluefin Image
+[group('Container')]
+build-bluefin:
+    @just build-container bluefin_base_image
+
+# Rebuild Bluefin Image
+[group('Container')]
+rebuild-bluefin:
+    @just rebuild-container bluefin_base_image
+
+# Build Bazzite QCOW2
+[group('VM')]
+build-qcow2-bazzite:
+    @just build-qcow2 "localhost/{{image_name}}-bazzite"
+
+# Rebuild Bazzite QCOW2
+[group('VM')]
+rebuild-qcow2-bazzite:
+    @just rebuild-qcow2 "localhost/{{image_name}}-bazzite"
+
+# Build Bluefin QCOW2
+[group('VM')]
+build-qcow2-bluefin:
+    @just build-qcow2 "localhost/{{image_name}}-bluefin"
+
+# Rebuild Bluefin QCOW2
+[group('VM')]
+rebuild-qcow2-bluefin:
+    @just rebuild-qcow2 "localhost/{{image_name}}-bluefin"
+
+# Install Bazzite
+[group("System")]
+install-bazzite:
+    @just install "localhost/{{image_name}}-bazzite"
+
+# Install Bluefin
+[group("System")]
+install-bluefin:
+    @just install "localhost/{{image_name}}-bluefin"
+
+# Switch to Bazzite
+[group("System")]
+switch-bazzite:
+    @just switch "localhost/{{image_name}}-bazzite"
+
+# Switch to Bluefin
+[group("System")]
+switch-bluefin:
+    @just switch "localhost/{{image_name}}-bluefin"

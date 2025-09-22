@@ -27,8 +27,16 @@ concurrency:
 
 jobs:
   build_push:
-    name: Build and push image
+    name: Build and push ${{ matrix.image.name }}
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - name: bazzite-dx-nvidia
+            base: ghcr.io/ublue-os/bazzite-dx-nvidia:latest
+          - name: bluefin-dx
+            base: ghcr.io/ublue-os/bluefin-dx:latest
 
     permissions:
       contents: read
@@ -105,9 +113,11 @@ jobs:
             ./Containerfile
           # Postfix image name with -custom to make it a little more descriptive
           # Syntax: https://docs.github.com/en/actions/learn-github-actions/expressions#format
-          image: ${{ env.IMAGE_NAME }}
+          image: ${{ env.IMAGE_NAME }}-${{ matrix.image.name }}
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
+          build-args: |
+            BASE_IMAGE=${{ matrix.image.base }}
           oci: false
 
       # Rechunk is a script that we use on Universal Blue to make sure there isnt a single huge layer when your image gets published.
@@ -153,7 +163,7 @@ jobs:
           REGISTRY_PASSWORD: ${{ github.token }}
         with:
           registry: ${{ env.IMAGE_REGISTRY }}
-          image: ${{ env.IMAGE_NAME }}
+          image: ${{ env.IMAGE_NAME }}-${{ matrix.image.name }}
           tags: ${{ steps.metadata.outputs.tags }}
           username: ${{ env.REGISTRY_USER }}
           password: ${{ env.REGISTRY_PASSWORD }}
