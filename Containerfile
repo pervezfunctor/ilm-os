@@ -1,10 +1,13 @@
-# Allow build scripts to be referenced without being copied into the final image
+# Global build argument for base image selection
+ARG BASE_IMAGE="ghcr.io/ublue-os/bazzite-dx-nvidia:latest"
+
+# First stage - Copy build files
 FROM scratch AS ctx
 COPY build_files /
 
-# Base Image
-ARG BASE_IMAGE="ghcr.io/ublue-os/bazzite-dx-nvidia:latest"
+# Second stage - Final image
 FROM ${BASE_IMAGE}
+ARG BASE_IMAGE
 
 ## Other possible base images include:
 # FROM ghcr.io/ublue-os/bazzite:latest
