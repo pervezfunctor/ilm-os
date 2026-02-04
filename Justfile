@@ -98,6 +98,9 @@ build $target_image=image_name $tag=default_tag:
     if [[ -n "${BASE_IMAGE:-}" ]]; then
         BUILD_ARGS+=("--build-arg" "BASE_IMAGE=${BASE_IMAGE}")
     fi
+    if [[ -n "${BUILD_SCRIPT:-}" ]]; then
+        BUILD_ARGS+=("--build-arg" "BUILD_SCRIPT=${BUILD_SCRIPT}")
+    fi
 
     podman build \
         "${BUILD_ARGS[@]}" \
@@ -115,6 +118,9 @@ rebuild $target_image=image_name $tag=default_tag:
     fi
     if [[ -n "${BASE_IMAGE:-}" ]]; then
         BUILD_ARGS+=("--build-arg" "BASE_IMAGE=${BASE_IMAGE}")
+    fi
+    if [[ -n "${BUILD_SCRIPT:-}" ]]; then
+        BUILD_ARGS+=("--build-arg" "BUILD_SCRIPT=${BUILD_SCRIPT}")
     fi
 
     podman build \
@@ -311,6 +317,19 @@ run-vm-raw $target_image=("localhost/" + image_name) $tag=default_tag: && (_run-
 [group('Run Virtal Machine')]
 run-vm-iso $target_image=("localhost/" + image_name) $tag=default_tag: && (_run-vm target_image tag "iso" "disk_config/iso.toml")
 
+# Run helper targets for specific variants
+[group('Run Virtal Machine')]
+run-vm-bazzite:
+    @just run-vm-qcow2 "localhost/{{ image_name }}-bazzite-dx-nvidia"
+
+[group('Run Virtal Machine')]
+run-vm-bluefin:
+    @just run-vm-qcow2 "localhost/{{ image_name }}-bluefin-dx"
+
+[group('Run Virtal Machine')]
+run-vm-fedora:
+    @just run-vm-qcow2 "localhost/{{ image_name }}-fedora-bootc"
+
 # Run a virtual machine using systemd-vmspawn
 [group('Run Virtal Machine')]
 spawn-vm rebuild="0" type="qcow2" ram="6G":
@@ -360,26 +379,38 @@ format:
 
 bazzite_base_image := "ghcr.io/ublue-os/bazzite-dx-nvidia:latest"
 bluefin_base_image := "ghcr.io/ublue-os/bluefin-dx:latest"
+fedora_base_image := "quay.io/fedora/fedora-bootc:latest"
+fedora_build_script := "/ctx/build-fedora-bootc.sh"
 
 # Build Bazzite Image
 [group('Container')]
 build-bazzite:
-    @just build-container bazzite_base_image "bazzite-dx-nvidia"
+    @just build-container "{{ bazzite_base_image }}" "bazzite-dx-nvidia"
 
 # Rebuild Bazzite Image
 [group('Container')]
 rebuild-bazzite:
-    @just rebuild-container bazzite_base_image "bazzite-dx-nvidia"
+    @just rebuild-container "{{ bazzite_base_image }}" "bazzite-dx-nvidia"
 
 # Build Bluefin Image
 [group('Container')]
 build-bluefin:
-    @just build-container bluefin_base_image "bluefin-dx"
+    @just build-container "{{ bluefin_base_image }}" "bluefin-dx"
 
 # Rebuild Bluefin Image
 [group('Container')]
 rebuild-bluefin:
-    @just rebuild-container bluefin_base_image "bluefin-dx"
+    @just rebuild-container "{{ bluefin_base_image }}" "bluefin-dx"
+
+# Build Fedora Image
+[group('Container')]
+build-fedora:
+    @BUILD_SCRIPT="{{ fedora_build_script }}" just build-container "{{ fedora_base_image }}" "fedora-bootc"
+
+# Rebuild Fedora Image
+[group('Container')]
+rebuild-fedora:
+    @BUILD_SCRIPT="{{ fedora_build_script }}" just rebuild-container "{{ fedora_base_image }}" "fedora-bootc"
 
 # Build Bazzite QCOW2
 [group('VM')]
@@ -391,6 +422,16 @@ build-qcow2-bazzite:
 rebuild-qcow2-bazzite:
     @just rebuild-qcow2 "localhost/{{ image_name }}-bazzite-dx-nvidia"
 
+# Build Bazzite ISO
+[group('VM')]
+build-iso-bazzite:
+    @just build-iso "localhost/{{ image_name }}-bazzite-dx-nvidia"
+
+# Rebuild Bazzite ISO
+[group('VM')]
+rebuild-iso-bazzite:
+    @just rebuild-iso "localhost/{{ image_name }}-bazzite-dx-nvidia"
+
 # Build Bluefin QCOW2
 [group('VM')]
 build-qcow2-bluefin:
@@ -400,6 +441,36 @@ build-qcow2-bluefin:
 [group('VM')]
 rebuild-qcow2-bluefin:
     @just rebuild-qcow2 "localhost/{{ image_name }}-bluefin-dx"
+
+# Build Bluefin ISO
+[group('VM')]
+build-iso-bluefin:
+    @just build-iso "localhost/{{ image_name }}-bluefin-dx"
+
+# Rebuild Bluefin ISO
+[group('VM')]
+rebuild-iso-bluefin:
+    @just rebuild-iso "localhost/{{ image_name }}-bluefin-dx"
+
+# Build Fedora QCOW2
+[group('VM')]
+build-qcow2-fedora:
+    @just build-qcow2 "localhost/{{ image_name }}-fedora-bootc"
+
+# Rebuild Fedora QCOW2
+[group('VM')]
+rebuild-qcow2-fedora:
+    @just rebuild-qcow2 "localhost/{{ image_name }}-fedora-bootc"
+
+# Build Fedora ISO
+[group('VM')]
+build-iso-fedora:
+    @just build-iso "localhost/{{ image_name }}-fedora-bootc"
+
+# Rebuild Fedora ISO
+[group('VM')]
+rebuild-iso-fedora:
+    @just rebuild-iso "localhost/{{ image_name }}-fedora-bootc"
 
 # Install bootc image on the host
 [group("System")]

@@ -8,6 +8,7 @@ COPY build_files /
 # Second stage - Final image
 FROM ${BASE_IMAGE}
 ARG BASE_IMAGE
+ARG BUILD_SCRIPT="/ctx/build.sh"
 
 ## Other possible base images include:
 # FROM ghcr.io/ublue-os/bazzite:latest
@@ -32,7 +33,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
-    /ctx/build.sh && \
+    bash "${BUILD_SCRIPT}" && \
     ostree container commit
 
 
