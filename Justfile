@@ -1,4 +1,6 @@
-export image_name := env("IMAGE_NAME", "ilm-os") # output image name, usually same as repo name, change as needed
+# output image name, usually same as repo name, change as needed
+
+export image_name := env("IMAGE_NAME", "ilm-os")
 export default_tag := env("DEFAULT_TAG", "latest")
 export bib_image := env("BIB_IMAGE", "quay.io/centos-bootc/bootc-image-builder:latest")
 
@@ -13,7 +15,7 @@ default:
 # Check Just Syntax
 [group('Just')]
 check:
-    #!/usr/bin/bash
+    #!/usr/bin/env bash
     find . -type f -name "*.just" | while read -r file; do
     	echo "Checking syntax: $file"
     	just --unstable --fmt --check -f $file
@@ -24,7 +26,7 @@ check:
 # Fix Just Syntax
 [group('Just')]
 fix:
-    #!/usr/bin/bash
+    #!/usr/bin/env bash
     find . -type f -name "*.just" | while read -r file; do
     	echo "Checking syntax: $file"
     	just --unstable --fmt -f $file
@@ -35,7 +37,7 @@ fix:
 # Clean Repo
 [group('Utility')]
 clean:
-    #!/usr/bin/bash
+    #!/usr/bin/env bash
     set -eoux pipefail
     touch _build
     find *_build* -exec rm -rf {} \;
@@ -54,7 +56,7 @@ sudo-clean:
 [group('Utility')]
 [private]
 sudoif command *args:
-    #!/usr/bin/bash
+    #!/usr/bin/env bash
     function sudoif(){
         if [[ "${UID}" -eq 0 ]]; then
             "$@"
@@ -93,12 +95,46 @@ build $target_image=image_name $tag=default_tag:
     if [[ -z "$(git status -s)" ]]; then
         BUILD_ARGS+=("--build-arg" "SHA_HEAD_SHORT=$(git rev-parse --short HEAD)")
     fi
+    if [[ -n "${BASE_IMAGE:-}" ]]; then
+        BUILD_ARGS+=("--build-arg" "BASE_IMAGE=${BASE_IMAGE}")
+    fi
 
     podman build \
         "${BUILD_ARGS[@]}" \
         --pull=newer \
         --tag "${target_image}:${tag}" \
         .
+
+# Rebuild the image without cache using the specified parameters
+rebuild $target_image=image_name $tag=default_tag:
+    #!/usr/bin/env bash
+
+    BUILD_ARGS=()
+    if [[ -z "$(git status -s)" ]]; then
+        BUILD_ARGS+=("--build-arg" "SHA_HEAD_SHORT=$(git rev-parse --short HEAD)")
+    fi
+    if [[ -n "${BASE_IMAGE:-}" ]]; then
+        BUILD_ARGS+=("--build-arg" "BASE_IMAGE=${BASE_IMAGE}")
+    fi
+
+    podman build \
+        "${BUILD_ARGS[@]}" \
+        --pull=newer \
+        --no-cache \
+        --tag "${target_image}:${tag}" \
+        .
+
+# Build a container image for a specific variant/base combination
+build-container base_image variant target_image=("localhost/" + image_name + "-" + variant) tag=default_tag:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    BASE_IMAGE="{{ base_image }}" just build "{{ target_image }}" "{{ tag }}"
+
+# Rebuild a container image (no cache) for a specific variant/base combination
+rebuild-container base_image variant target_image=("localhost/" + image_name + "-" + variant) tag=default_tag:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    BASE_IMAGE="{{ base_image }}" just rebuild "{{ target_image }}" "{{ tag }}"
 
 # Command: _rootful_load_image
 # Description: This script checks if the current user is root or running under sudo. If not, it attempts to resolve the image tag using podman inspect.
@@ -118,7 +154,7 @@ build $target_image=image_name $tag=default_tag:
 # 4. If the image is not found, pull it from the remote repository into reootful podman.
 
 _rootful_load_image $target_image=image_name $tag=default_tag:
-    #!/usr/bin/bash
+    #!/usr/bin/env bash
     set -eoux pipefail
 
     # Check if already running as root or under sudo
@@ -223,7 +259,7 @@ rebuild-iso $target_image=("localhost/" + image_name) $tag=default_tag: && (_reb
 
 # Run a virtual machine with the specified image type and configuration
 _run-vm $target_image $tag $type $config:
-    #!/usr/bin/bash
+    #!/usr/bin/env bash
     set -eoux pipefail
 
     # Determine the image file based on the type
@@ -282,7 +318,10 @@ spawn-vm rebuild="0" type="qcow2" ram="6G":
 
     set -euo pipefail
 
-    [ "{{ rebuild }}" -eq 1 ] && echo "Rebuilding the ISO" && just build-vm {{ rebuild }} {{ type }}
+    if [[ "{{ rebuild }}" -eq 1 ]]; then
+        echo "Rebuilding the {{ type }} image"
+        just "build-{{ type }}" "localhost/{{ image_name }}" "{{ default_tag }}"
+    fi
 
     systemd-vmspawn \
       -M "bootc-image" \
@@ -292,7 +331,6 @@ spawn-vm rebuild="0" type="qcow2" ram="6G":
       --network-user-mode \
       --vsock=false --pass-ssh-key=false \
       -i ./output/**/*.{{ type }}
-
 
 # Runs shell check on all Bash scripts
 lint:
@@ -312,72 +350,87 @@ format:
     set -eoux pipefail
     # Check if shfmt is installed
     if ! command -v shfmt &> /dev/null; then
-        echo "shellcheck could not be found. Please install it."
+        echo "shfmt could not be found. Please install it."
         exit 1
     fi
     # Run shfmt on all Bash scripts
     /usr/bin/find . -iname "*.sh" -type f -exec shfmt --write "{}" ';'
 
 # Image Variants
+
 bazzite_base_image := "ghcr.io/ublue-os/bazzite-dx-nvidia:latest"
 bluefin_base_image := "ghcr.io/ublue-os/bluefin-dx:latest"
 
 # Build Bazzite Image
 [group('Container')]
 build-bazzite:
-    @just build-container bazzite_base_image
+    @just build-container bazzite_base_image "bazzite-dx-nvidia"
 
 # Rebuild Bazzite Image
 [group('Container')]
 rebuild-bazzite:
-    @just rebuild-container bazzite_base_image
+    @just rebuild-container bazzite_base_image "bazzite-dx-nvidia"
 
 # Build Bluefin Image
 [group('Container')]
 build-bluefin:
-    @just build-container bluefin_base_image
+    @just build-container bluefin_base_image "bluefin-dx"
 
 # Rebuild Bluefin Image
 [group('Container')]
 rebuild-bluefin:
-    @just rebuild-container bluefin_base_image
+    @just rebuild-container bluefin_base_image "bluefin-dx"
 
 # Build Bazzite QCOW2
 [group('VM')]
 build-qcow2-bazzite:
-    @just build-qcow2 "localhost/{{image_name}}-bazzite"
+    @just build-qcow2 "localhost/{{ image_name }}-bazzite-dx-nvidia"
 
 # Rebuild Bazzite QCOW2
 [group('VM')]
 rebuild-qcow2-bazzite:
-    @just rebuild-qcow2 "localhost/{{image_name}}-bazzite"
+    @just rebuild-qcow2 "localhost/{{ image_name }}-bazzite-dx-nvidia"
 
 # Build Bluefin QCOW2
 [group('VM')]
 build-qcow2-bluefin:
-    @just build-qcow2 "localhost/{{image_name}}-bluefin"
+    @just build-qcow2 "localhost/{{ image_name }}-bluefin-dx"
 
 # Rebuild Bluefin QCOW2
 [group('VM')]
 rebuild-qcow2-bluefin:
-    @just rebuild-qcow2 "localhost/{{image_name}}-bluefin"
+    @just rebuild-qcow2 "localhost/{{ image_name }}-bluefin-dx"
+
+# Install bootc image on the host
+[group("System")]
+install $target_image=("localhost/" + image_name) $tag=default_tag:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just sudoif bootc install "{{ target_image }}:{{ tag }}"
+
+# Switch the host to a bootc image
+[group("System")]
+switch $target_image=("localhost/" + image_name) $tag=default_tag:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just sudoif bootc switch "{{ target_image }}:{{ tag }}"
 
 # Install Bazzite
 [group("System")]
 install-bazzite:
-    @just install "localhost/{{image_name}}-bazzite"
+    @just install "localhost/{{ image_name }}-bazzite-dx-nvidia"
 
 # Install Bluefin
 [group("System")]
 install-bluefin:
-    @just install "localhost/{{image_name}}-bluefin"
+    @just install "localhost/{{ image_name }}-bluefin-dx"
 
 # Switch to Bazzite
 [group("System")]
 switch-bazzite:
-    @just switch "localhost/{{image_name}}-bazzite"
+    @just switch "localhost/{{ image_name }}-bazzite-dx-nvidia"
 
 # Switch to Bluefin
 [group("System")]
 switch-bluefin:
-    @just switch "localhost/{{image_name}}-bluefin"
+    @just switch "localhost/{{ image_name }}-bluefin-dx"

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -ouex pipefail
 
@@ -10,8 +10,24 @@ set -ouex pipefail
 # https://mirrors.rpmfusion.org/mirrorlist?path=free/fedora/updates/39/x86_64/repoview/index.html&protocol=https&redirect=1
 
 # this installs a package from fedora repos
-dnf5 install -y virt-install xorriso bridge-utils guestfs-tools libosinfo \
-  kitty virt-viewer cloud-utils coreos-installer squashfs-tools bsdtar
+dnf5 install -y \
+  virt-install \
+  xorriso \
+  bridge-utils \
+  guestfs-tools \
+  libosinfo \
+  kitty \
+  virt-viewer \
+  cloud-utils \
+  coreos-installer \
+  squashfs-tools \
+  bsdtar \
+  libvirt-daemon \
+  libvirt-daemon-driver-qemu \
+  libvirt-daemon-config-network
+
+# keep the layer size small now that we're pulling in libvirt
+dnf5 clean all
 
 # Use a COPR Example:
 #
@@ -22,4 +38,8 @@ dnf5 install -y virt-install xorriso bridge-utils guestfs-tools libosinfo \
 
 #### Example for enabling a System Unit File
 
-systemctl enable libvirtd
+if systemctl list-unit-files | grep -q '^libvirtd.service'; then
+  systemctl enable libvirtd
+else
+  echo "libvirtd.service not found on this base image, skipping enable"
+fi
