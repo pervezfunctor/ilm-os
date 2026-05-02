@@ -420,17 +420,17 @@ build-qcow2-bazzite:
 # Rebuild Bazzite QCOW2
 [group('VM')]
 rebuild-qcow2-bazzite:
-    @just rebuild-qcow2 "localhost/{{ image_name }}-bazzite-dx-nvidia"
+    @BASE_IMAGE="{{ bazzite_base_image }}" just rebuild-qcow2 "localhost/{{ image_name }}-bazzite-dx-nvidia"
 
 # Build Bazzite ISO
 [group('VM')]
 build-iso-bazzite:
-    @just build-iso "localhost/{{ image_name }}-bazzite-dx-nvidia"
+    @just _build-bib "localhost/{{ image_name }}-bazzite-dx-nvidia" "{{ default_tag }}" "iso" "disk_config/iso-bazzite.toml"
 
 # Rebuild Bazzite ISO
 [group('VM')]
 rebuild-iso-bazzite:
-    @just rebuild-iso "localhost/{{ image_name }}-bazzite-dx-nvidia"
+    @BASE_IMAGE="{{ bazzite_base_image }}" just _rebuild-bib "localhost/{{ image_name }}-bazzite-dx-nvidia" "{{ default_tag }}" "iso" "disk_config/iso-bazzite.toml"
 
 # Build Bluefin QCOW2
 [group('VM')]
@@ -440,17 +440,17 @@ build-qcow2-bluefin:
 # Rebuild Bluefin QCOW2
 [group('VM')]
 rebuild-qcow2-bluefin:
-    @just rebuild-qcow2 "localhost/{{ image_name }}-bluefin-dx"
+    @BASE_IMAGE="{{ bluefin_base_image }}" just rebuild-qcow2 "localhost/{{ image_name }}-bluefin-dx"
 
 # Build Bluefin ISO
 [group('VM')]
 build-iso-bluefin:
-    @just build-iso "localhost/{{ image_name }}-bluefin-dx"
+    @just _build-bib "localhost/{{ image_name }}-bluefin-dx" "{{ default_tag }}" "iso" "disk_config/iso-bluefin.toml"
 
 # Rebuild Bluefin ISO
 [group('VM')]
 rebuild-iso-bluefin:
-    @just rebuild-iso "localhost/{{ image_name }}-bluefin-dx"
+    @BASE_IMAGE="{{ bluefin_base_image }}" just _rebuild-bib "localhost/{{ image_name }}-bluefin-dx" "{{ default_tag }}" "iso" "disk_config/iso-bluefin.toml"
 
 # Build Fedora QCOW2
 [group('VM')]
@@ -460,17 +460,17 @@ build-qcow2-fedora:
 # Rebuild Fedora QCOW2
 [group('VM')]
 rebuild-qcow2-fedora:
-    @just rebuild-qcow2 "localhost/{{ image_name }}-fedora-bootc"
+    @BASE_IMAGE="{{ fedora_base_image }}" BUILD_SCRIPT="{{ fedora_build_script }}" just rebuild-qcow2 "localhost/{{ image_name }}-fedora-bootc"
 
 # Build Fedora ISO
 [group('VM')]
 build-iso-fedora:
-    @just build-iso "localhost/{{ image_name }}-fedora-bootc"
+    @just _build-bib "localhost/{{ image_name }}-fedora-bootc" "{{ default_tag }}" "iso" "disk_config/iso-fedora.toml"
 
 # Rebuild Fedora ISO
 [group('VM')]
 rebuild-iso-fedora:
-    @just rebuild-iso "localhost/{{ image_name }}-fedora-bootc"
+    @BASE_IMAGE="{{ fedora_base_image }}" BUILD_SCRIPT="{{ fedora_build_script }}" just _rebuild-bib "localhost/{{ image_name }}-fedora-bootc" "{{ default_tag }}" "iso" "disk_config/iso-fedora.toml"
 
 # Install bootc image on the host
 [group("System")]
