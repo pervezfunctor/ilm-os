@@ -5,6 +5,20 @@ set -ouex pipefail
 # Ensure the COPR plugin is present before enabling third-party repos.
 dnf5 install -y 'dnf5-command(copr)'
 
+# Visual Studio Code is not shipped by Fedora. Configure Microsoft's official
+# RPM repository before including the `code` package in the desktop install.
+rpm --import https://packages.microsoft.com/keys/microsoft.asc
+tee /etc/yum.repos.d/vscode.repo >/dev/null <<'EOF'
+[code]
+name=Visual Studio Code
+baseurl=https://packages.microsoft.com/yumrepos/vscode
+enabled=1
+autorefresh=1
+type=rpm-md
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc
+EOF
+
 # Enable third-party COPRs needed for the niri session and DankMaterialShell.
 dnf5 copr enable -y avengemedia/dms
 dnf5 copr enable -y yalter/niri
@@ -29,7 +43,6 @@ dnf5 install -y \
   distribution-gpg-keys \
   distrobox \
   dms \
-  dms-greeter \
   dms-greeter \
   dnsmasq \
   duf \
@@ -85,7 +98,6 @@ dnf5 install -y \
   pipewire-gstreamer \
   pipewire-pulseaudio \
   pipx \
-  pipx \
   playerctl \
   plocate \
   podman \
@@ -104,7 +116,6 @@ dnf5 install -y \
   swtpm \
   tar \
   tealdeer \
-  tmux \
   tmux \
   trash-cli \
   tuned \
