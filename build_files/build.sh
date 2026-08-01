@@ -2,6 +2,11 @@
 
 set -ouex pipefail
 
+# Copy optional static files into the image before applying package changes.
+if [[ -d "/ctx/system_files" ]]; then
+  cp -avf "/ctx/system_files"/. /
+fi
+
 ### Install packages
 
 # Packages can be installed from any enabled yum repo on the image.

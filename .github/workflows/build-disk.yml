@@ -21,7 +21,7 @@ on:
       - main
     paths:
       - 'disk_config/disk.toml'
-      - 'disk_config/iso.toml'
+      - 'disk_config/iso*.toml'
       - '.github/workflows/build-disk.yml'
 
 env:
@@ -41,7 +41,13 @@ jobs:
       fail-fast: false
       matrix:
         disk-type: ["qcow2", "anaconda-iso"]
-        variant: ["bazzite-dx-nvidia", "bluefin-dx"]
+        image:
+          - variant: bazzite-dx-nvidia
+            iso_config: disk_config/iso-bazzite.toml
+          - variant: bluefin-dx
+            iso_config: disk_config/iso-bluefin.toml
+          - variant: fedora-bootc
+            iso_config: disk_config/iso-fedora.toml
     permissions:
       contents: read
       packages: read
@@ -53,7 +59,7 @@ jobs:
           USER_UID=$(id -u)
           USER_GID=$(id -g)
           DISK_TYPE="${{ matrix.disk-type }}"
-          IMAGE_VARIANT="${{ matrix.variant }}"
+          IMAGE_VARIANT="${{ matrix.image.variant }}"
           # Lowercase the image uri
           {
             echo "IMAGE_REGISTRY=${IMAGE_REGISTRY,,}"
@@ -92,11 +98,11 @@ jobs:
             sudo apt-get install -y gettext-base
           fi
           if [[ "${{ matrix.disk-type }}" == "anaconda-iso" ]]; then
-            CONFIG_FILE="./disk_config/iso.toml"
+            CONFIG_FILE="./${{ matrix.image.iso_config }}"
           else
             CONFIG_FILE="./disk_config/disk.toml"
           fi
-          RENDERED_PATH="${RUNNER_TEMP}/config-${{ matrix.disk-type }}-${{ matrix.variant }}.toml"
+          RENDERED_PATH="${RUNNER_TEMP}/config-${{ matrix.disk-type }}-${{ matrix.image.variant }}.toml"
           envsubst < "${CONFIG_FILE}" > "${RENDERED_PATH}"
           echo "path=${RENDERED_PATH}" >> "${GITHUB_OUTPUT}"
 

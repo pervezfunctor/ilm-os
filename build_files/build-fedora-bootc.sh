@@ -2,6 +2,11 @@
 
 set -ouex pipefail
 
+# Copy optional static files into the image before applying package changes.
+if [[ -d "/ctx/system_files" ]]; then
+  cp -avf "/ctx/system_files"/. /
+fi
+
 # Ensure the COPR plugin is present before enabling third-party repos.
 dnf5 install -y 'dnf5-command(copr)'
 

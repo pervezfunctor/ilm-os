@@ -4,6 +4,7 @@ ARG BASE_IMAGE="ghcr.io/ublue-os/bazzite-dx-nvidia:latest"
 # First stage - Copy build files
 FROM scratch AS ctx
 COPY build_files /
+COPY system_files /system_files
 
 # Second stage - Final image
 FROM ${BASE_IMAGE}
