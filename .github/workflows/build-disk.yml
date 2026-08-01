@@ -43,13 +43,10 @@ jobs:
         disk-type: ["qcow2", "anaconda-iso"]
         image:
           - variant: bazzite-dx-nvidia
-            base: ghcr.io/ublue-os/bazzite-dx-nvidia:latest
             iso_config: disk_config/iso-bazzite.toml
           - variant: bluefin-dx
-            base: ghcr.io/ublue-os/bluefin-dx:latest
             iso_config: disk_config/iso-bluefin.toml
           - variant: fedora-bootc
-            base: quay.io/fedora/fedora-bootc:latest
             iso_config: disk_config/iso-fedora.toml
     permissions:
       contents: read
@@ -65,8 +62,10 @@ jobs:
           IMAGE_VARIANT="${{ matrix.image.variant }}"
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             # PR builds validate the current disk workflow against its upstream
-            # base. Custom images are intentionally not published from PRs.
-            IMAGE_REFERENCE="${{ matrix.image.base }}"
+            # bootc base. Custom images are intentionally not published from
+            # PRs, and desktop bases may contain host-local package repos that
+            # bootc-image-builder cannot resolve outside the source image.
+            IMAGE_REFERENCE="quay.io/fedora/fedora-bootc:latest"
           else
             IMAGE_REFERENCE="${IMAGE_REGISTRY,,}/${IMAGE_NAME,,}-${IMAGE_VARIANT}:${DEFAULT_TAG}"
           fi
