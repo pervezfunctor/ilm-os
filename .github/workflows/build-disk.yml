@@ -21,7 +21,7 @@ on:
       - main
     paths:
       - 'disk_config/disk.toml'
-      - 'disk_config/iso.toml'
+      - 'disk_config/iso*.toml'
       - '.github/workflows/build-disk.yml'
 
 env:
@@ -41,7 +41,13 @@ jobs:
       fail-fast: false
       matrix:
         disk-type: ["qcow2", "anaconda-iso"]
-        variant: ["bazzite-dx-nvidia", "bluefin-dx"]
+        image:
+          - variant: bazzite-dx-nvidia
+            iso_config: disk_config/iso-bazzite.toml
+          - variant: bluefin-dx
+            iso_config: disk_config/iso-bluefin.toml
+          - variant: fedora-bootc
+            iso_config: disk_config/iso-fedora.toml
     permissions:
       contents: read
       packages: read
@@ -53,7 +59,16 @@ jobs:
           USER_UID=$(id -u)
           USER_GID=$(id -g)
           DISK_TYPE="${{ matrix.disk-type }}"
-          IMAGE_VARIANT="${{ matrix.variant }}"
+          IMAGE_VARIANT="${{ matrix.image.variant }}"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # PR builds validate the current disk workflow against its upstream
+            # bootc base. Custom images are intentionally not published from
+            # PRs, and desktop bases may contain host-local package repos that
+            # bootc-image-builder cannot resolve outside the source image.
+            IMAGE_REFERENCE="quay.io/fedora/fedora-bootc:latest"
+          else
+            IMAGE_REFERENCE="${IMAGE_REGISTRY,,}/${IMAGE_NAME,,}-${IMAGE_VARIANT}:${DEFAULT_TAG}"
+          fi
           # Lowercase the image uri
           {
             echo "IMAGE_REGISTRY=${IMAGE_REGISTRY,,}"
@@ -62,7 +77,7 @@ jobs:
             echo "USER_UID=${USER_UID}"
             echo "USER_GID=${USER_GID}"
             echo "IMAGE_VARIANT=${IMAGE_VARIANT}"
-            echo "IMAGE_REFERENCE=${IMAGE_REGISTRY,,}/${IMAGE_NAME,,}-${IMAGE_VARIANT}:${DEFAULT_TAG}"
+            echo "IMAGE_REFERENCE=${IMAGE_REFERENCE}"
           } >> "${GITHUB_ENV}"
 
       - name: Install dependencies
@@ -92,13 +107,23 @@ jobs:
             sudo apt-get install -y gettext-base
           fi
           if [[ "${{ matrix.disk-type }}" == "anaconda-iso" ]]; then
-            CONFIG_FILE="./disk_config/iso.toml"
+            CONFIG_FILE="./${{ matrix.image.iso_config }}"
           else
             CONFIG_FILE="./disk_config/disk.toml"
           fi
-          RENDERED_PATH="${RUNNER_TEMP}/config-${{ matrix.disk-type }}-${{ matrix.variant }}.toml"
+          RENDERED_PATH="${RUNNER_TEMP}/config-${{ matrix.disk-type }}-${{ matrix.image.variant }}.toml"
           envsubst < "${CONFIG_FILE}" > "${RENDERED_PATH}"
           echo "path=${RENDERED_PATH}" >> "${GITHUB_OUTPUT}"
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REGISTRY_USER: ${{ github.actor }}
+        run: |
+          printf '%s' "${REGISTRY_TOKEN}" | sudo podman login ghcr.io \
+            --username "${REGISTRY_USER}" \
+            --password-stdin
 
       - name: Build disk images
         id: build
@@ -107,6 +132,7 @@ jobs:
           config-file: ${{ steps.config.outputs.path }}
           image: ${{ env.IMAGE_REFERENCE }}
           chown: ${{ env.USER_UID }}:${{ env.USER_GID }}
+          rootfs: btrfs
           types: ${{ matrix.disk-type }}
           additional-args: --use-librepo=True
 

@@ -1,8 +1,14 @@
-# output image name, usually same as repo name, change as needed
+set dotenv-filename := "image-template.env"
+set dotenv-load
 
-export image_name := env("IMAGE_NAME", "ilm-os")
-export default_tag := env("DEFAULT_TAG", "latest")
-export bib_image := env("BIB_IMAGE", "quay.io/centos-bootc/bootc-image-builder:latest")
+export image_name := env_var("IMAGE_NAME")
+export repo_image_name := env_var("REPO_IMAGE_NAME")
+export repo_organization := env_var("REPO_ORGANIZATION")
+export image_desc := env_var("IMAGE_DESC")
+export image_keywords := env_var("IMAGE_KEYWORDS")
+export image_logo_url := env_var("IMAGE_LOGO_URL")
+export default_tag := env_var("DEFAULT_TAG")
+export bib_image := env_var("BIB_IMAGE")
 
 alias build-vm := build-qcow2
 alias rebuild-vm := rebuild-qcow2
@@ -91,9 +97,17 @@ sudoif command *args:
 build $target_image=image_name $tag=default_tag:
     #!/usr/bin/env bash
 
+    set -euox pipefail
+
     BUILD_ARGS=()
+    LABELS=()
     if [[ -z "$(git status -s)" ]]; then
-        BUILD_ARGS+=("--build-arg" "SHA_HEAD_SHORT=$(git rev-parse --short HEAD)")
+        GIT_SHA=$(git rev-parse --short HEAD)
+        LABELS+=("--label" "io.artifacthub.package.readme-url=https://raw.githubusercontent.com/{{ repo_organization }}/{{ repo_image_name }}/${GIT_SHA}/README.md")
+        LABELS+=("--label" "org.opencontainers.image.documentation=https://raw.githubusercontent.com/{{ repo_organization }}/{{ repo_image_name }}/${GIT_SHA}/README.md")
+        LABELS+=("--label" "org.opencontainers.image.source=https://github.com/{{ repo_organization }}/{{ repo_image_name }}/blob/${GIT_SHA}/Containerfile")
+        LABELS+=("--label" "org.opencontainers.image.url=https://github.com/{{ repo_organization }}/{{ repo_image_name }}/tree/${GIT_SHA}")
+        LABELS+=("--label" "org.opencontainers.image.version=${tag}.$(date +%Y%m%d)-${GIT_SHA}")
     fi
     if [[ -n "${BASE_IMAGE:-}" ]]; then
         BUILD_ARGS+=("--build-arg" "BASE_IMAGE=${BASE_IMAGE}")
@@ -102,19 +116,37 @@ build $target_image=image_name $tag=default_tag:
         BUILD_ARGS+=("--build-arg" "BUILD_SCRIPT=${BUILD_SCRIPT}")
     fi
 
-    podman build \
-        "${BUILD_ARGS[@]}" \
-        --pull=newer \
-        --tag "${target_image}:${tag}" \
-        .
+    # Image metadata for Artifact Hub and OCI consumers.
+    LABELS+=("--label" "io.artifacthub.package.deprecated=false")
+    LABELS+=("--label" "io.artifacthub.package.keywords={{ image_keywords }}")
+    LABELS+=("--label" "io.artifacthub.package.license=Apache-2.0")
+    LABELS+=("--label" "io.artifacthub.package.logo-url={{ image_logo_url }}")
+    LABELS+=("--label" "io.artifacthub.package.prerelease=false")
+    LABELS+=("--label" "org.opencontainers.image.created=$(date -u +%Y\-%m\-%d\T%H\:%M\:%S\Z)")
+    LABELS+=("--label" "org.opencontainers.image.description={{ image_desc }}")
+    LABELS+=("--label" "org.opencontainers.image.title={{ image_name }}")
+    LABELS+=("--label" "org.opencontainers.image.vendor={{ repo_organization }}")
+    LABELS+=("--label" "containers.bootc=1")
+
+    PODMAN_BUILD_ARGS=("${BUILD_ARGS[@]}" "${LABELS[@]}" --pull=newer --tag "${target_image}:${tag}" --file Containerfile)
+
+    podman build "${PODMAN_BUILD_ARGS[@]}" .
 
 # Rebuild the image without cache using the specified parameters
 rebuild $target_image=image_name $tag=default_tag:
     #!/usr/bin/env bash
 
+    set -euox pipefail
+
     BUILD_ARGS=()
+    LABELS=()
     if [[ -z "$(git status -s)" ]]; then
-        BUILD_ARGS+=("--build-arg" "SHA_HEAD_SHORT=$(git rev-parse --short HEAD)")
+        GIT_SHA=$(git rev-parse --short HEAD)
+        LABELS+=("--label" "io.artifacthub.package.readme-url=https://raw.githubusercontent.com/{{ repo_organization }}/{{ repo_image_name }}/${GIT_SHA}/README.md")
+        LABELS+=("--label" "org.opencontainers.image.documentation=https://raw.githubusercontent.com/{{ repo_organization }}/{{ repo_image_name }}/${GIT_SHA}/README.md")
+        LABELS+=("--label" "org.opencontainers.image.source=https://github.com/{{ repo_organization }}/{{ repo_image_name }}/blob/${GIT_SHA}/Containerfile")
+        LABELS+=("--label" "org.opencontainers.image.url=https://github.com/{{ repo_organization }}/{{ repo_image_name }}/tree/${GIT_SHA}")
+        LABELS+=("--label" "org.opencontainers.image.version=${tag}.$(date +%Y%m%d)-${GIT_SHA}")
     fi
     if [[ -n "${BASE_IMAGE:-}" ]]; then
         BUILD_ARGS+=("--build-arg" "BASE_IMAGE=${BASE_IMAGE}")
@@ -123,12 +155,130 @@ rebuild $target_image=image_name $tag=default_tag:
         BUILD_ARGS+=("--build-arg" "BUILD_SCRIPT=${BUILD_SCRIPT}")
     fi
 
-    podman build \
-        "${BUILD_ARGS[@]}" \
-        --pull=newer \
-        --no-cache \
-        --tag "${target_image}:${tag}" \
-        .
+    LABELS+=("--label" "io.artifacthub.package.deprecated=false")
+    LABELS+=("--label" "io.artifacthub.package.keywords={{ image_keywords }}")
+    LABELS+=("--label" "io.artifacthub.package.license=Apache-2.0")
+    LABELS+=("--label" "io.artifacthub.package.logo-url={{ image_logo_url }}")
+    LABELS+=("--label" "io.artifacthub.package.prerelease=false")
+    LABELS+=("--label" "org.opencontainers.image.created=$(date -u +%Y\-%m\-%d\T%H\:%M\:%S\Z)")
+    LABELS+=("--label" "org.opencontainers.image.description={{ image_desc }}")
+    LABELS+=("--label" "org.opencontainers.image.title={{ image_name }}")
+    LABELS+=("--label" "org.opencontainers.image.vendor={{ repo_organization }}")
+    LABELS+=("--label" "containers.bootc=1")
+
+    PODMAN_BUILD_ARGS=("${BUILD_ARGS[@]}" "${LABELS[@]}" --pull=newer --no-cache --tag "${target_image}:${tag}" --file Containerfile)
+
+    podman build "${PODMAN_BUILD_ARGS[@]}" .
+
+# Split the image for smaller updates with the distro-agnostic chunkah tool.
+rechunk $target_image=image_name $tag=default_tag:
+    #!/usr/bin/env bash
+
+    set -xeuo pipefail
+
+    image_ref="${target_image}:${tag}"
+    export CHUNKAH_CONFIG_STR="$(podman inspect "${image_ref}")"
+    podman run --rm --mount=type=image,src="${image_ref}",target=/chunkah \
+      -e CHUNKAH_CONFIG_STR quay.io/coreos/chunkah:latest \
+      build \
+      --verbose \
+      --compressed \
+      --max-layers 128 \
+      --prune /sysroot/ \
+      --label ostree.commit- --label ostree.final-diffid- \
+      --tag "${image_ref}" | podman load
+
+# Split the image for smaller updates with rpm-ostree.
+ostree-rechunk $target_image=image_name $tag=default_tag:
+    #!/usr/bin/env bash
+
+    set -xeuo pipefail
+
+    if [[ "${UID}" -ne 0 ]]; then
+        echo "This needs to run as root."
+        exit 1
+    fi
+
+    # Override this when a different Fedora bootc image is preferred.
+    RPM_OSTREE_CHUNKER_IMAGE="${RPM_OSTREE_CHUNKER_IMAGE:-quay.io/fedora/fedora-bootc:latest}"
+    image_ref="${target_image}:${tag}"
+    if [[ "${target_image}" != */* ]]; then
+        image_ref="localhost/${image_ref}"
+    fi
+
+    podman run --rm \
+      --pull=newer \
+      --privileged \
+      -v "/var/lib/containers:/var/lib/containers" \
+      --entrypoint /usr/bin/rpm-ostree \
+      "${RPM_OSTREE_CHUNKER_IMAGE}" \
+      compose build-chunked-oci \
+      --max-layers 127 \
+      --format-version=2 \
+      --bootc \
+      --from "${image_ref}" \
+      --output "containers-storage:${image_ref}"
+
+# Generate the default image tag.
+[group('Utility')]
+generate-default-tag $tag=default_tag:
+    #!/usr/bin/env bash
+    set -eoux pipefail
+
+    echo "${tag}"
+
+# Generate aliases while retaining ilm-os's existing date tag format.
+[group('Utility')]
+generate-build-tags $target_image=image_name $tag=default_tag:
+    #!/usr/bin/env bash
+    set -eoux pipefail
+
+    DATE=$(date +%Y%m%d)
+    BUILD_TAGS=()
+    if [[ -z "$(git status -s)" ]]; then
+        GIT_SHA=$(git rev-parse --short=7 HEAD)
+        BUILD_TAGS+=("${tag}-${GIT_SHA}")
+        BUILD_TAGS+=("${tag}.${DATE}-${GIT_SHA}")
+        BUILD_TAGS+=("${DATE}-${GIT_SHA}")
+    fi
+
+    if [[ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]]; then
+        GIT_SHA="${GIT_SHA:-$(git rev-parse --short=7 HEAD)}"
+        BUILD_TAGS+=("sha-${GIT_SHA}")
+        if [[ -n "${GITHUB_EVENT_NUMBER:-}" ]]; then
+            BUILD_TAGS+=("pr-${GITHUB_EVENT_NUMBER}")
+        fi
+    fi
+
+    BUILD_TAGS+=("${tag}")
+    BUILD_TAGS+=("${tag}.${DATE}")
+    BUILD_TAGS+=("${DATE}")
+
+    echo "${BUILD_TAGS[@]}"
+
+# Tag an image with the aliases generated above.
+[group('Utility')]
+tag-images $target_image=image_name $tag=default_tag tags="":
+    #!/usr/bin/env bash
+    set -eoux pipefail
+
+    IMAGE=$(podman inspect "${target_image}:${tag}" | jq -r '.[].Id')
+    podman untag "${IMAGE}"
+
+    for tag in {{ tags }}; do
+        podman tag "${IMAGE}" "${target_image}:${tag}"
+    done
+
+    podman images
+
+# Print the configured image name for CI and scripts.
+[group('Utility')]
+[private]
+image_name $target_image=image_name:
+    #!/usr/bin/env bash
+    set -eoux pipefail
+
+    echo "${image_name}"
 
 # Build a container image for a specific variant/base combination
 build-container base_image variant target_image=("localhost/" + image_name + "-" + variant) tag=default_tag:
