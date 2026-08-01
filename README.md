@@ -58,4 +58,4 @@ The disk-image workflow builds both `qcow2` and `anaconda-iso` for all three var
 
 Files placed under `system_files/` are copied into the image root during every variant build. For example, `system_files/etc/example.conf` becomes `/etc/example.conf`; the directory can remain empty when no static overlay is needed.
 
-The publish workflow builds each variant with Just, runs the supported rootful `ostree-rechunk` step, preserves the existing `latest`, date, pull-request, and SHA tag forms, and also adds immutable commit aliases for clean commits. The alternative `chunkah` workflow is available locally with `sudo just rechunk <image> <tag>`.
+The publish workflow builds each variant with Just, runs the supported rootful `ostree-rechunk` step, preserves the existing `latest`, date, pull-request, and SHA tag forms, and also adds immutable commit aliases for clean commits. The alternative `chunkah` workflow is available locally with `just rechunk <image> <tag>` for rootless images; run both the build and rechunk commands with `sudo` when using rootful Podman storage.
