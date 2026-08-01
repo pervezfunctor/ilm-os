@@ -43,10 +43,13 @@ jobs:
         disk-type: ["qcow2", "anaconda-iso"]
         image:
           - variant: bazzite-dx-nvidia
+            base: ghcr.io/ublue-os/bazzite-dx-nvidia:latest
             iso_config: disk_config/iso-bazzite.toml
           - variant: bluefin-dx
+            base: ghcr.io/ublue-os/bluefin-dx:latest
             iso_config: disk_config/iso-bluefin.toml
           - variant: fedora-bootc
+            base: quay.io/fedora/fedora-bootc:latest
             iso_config: disk_config/iso-fedora.toml
     permissions:
       contents: read
@@ -60,6 +63,13 @@ jobs:
           USER_GID=$(id -g)
           DISK_TYPE="${{ matrix.disk-type }}"
           IMAGE_VARIANT="${{ matrix.image.variant }}"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # PR builds validate the current disk workflow against its upstream
+            # base. Custom images are intentionally not published from PRs.
+            IMAGE_REFERENCE="${{ matrix.image.base }}"
+          else
+            IMAGE_REFERENCE="${IMAGE_REGISTRY,,}/${IMAGE_NAME,,}-${IMAGE_VARIANT}:${DEFAULT_TAG}"
+          fi
           # Lowercase the image uri
           {
             echo "IMAGE_REGISTRY=${IMAGE_REGISTRY,,}"
@@ -68,7 +78,7 @@ jobs:
             echo "USER_UID=${USER_UID}"
             echo "USER_GID=${USER_GID}"
             echo "IMAGE_VARIANT=${IMAGE_VARIANT}"
-            echo "IMAGE_REFERENCE=${IMAGE_REGISTRY,,}/${IMAGE_NAME,,}-${IMAGE_VARIANT}:${DEFAULT_TAG}"
+            echo "IMAGE_REFERENCE=${IMAGE_REFERENCE}"
           } >> "${GITHUB_ENV}"
 
       - name: Install dependencies
@@ -106,6 +116,16 @@ jobs:
           envsubst < "${CONFIG_FILE}" > "${RENDERED_PATH}"
           echo "path=${RENDERED_PATH}" >> "${GITHUB_OUTPUT}"
 
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REGISTRY_USER: ${{ github.actor }}
+        run: |
+          printf '%s' "${REGISTRY_TOKEN}" | sudo podman login ghcr.io \
+            --username "${REGISTRY_USER}" \
+            --password-stdin
+
       - name: Build disk images
         id: build
         uses: osbuild/bootc-image-builder-action@30960621b85c9e76c653082f9ef4cab5a10210d5 # main
@@ -113,6 +133,7 @@ jobs:
           config-file: ${{ steps.config.outputs.path }}
           image: ${{ env.IMAGE_REFERENCE }}
           chown: ${{ env.USER_UID }}:${{ env.USER_GID }}
+          rootfs: btrfs
           types: ${{ matrix.disk-type }}
           additional-args: --use-librepo=True
 
