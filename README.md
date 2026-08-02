@@ -1,61 +1,55 @@
 # ILM OS
 
-I currently base my images on [Bazzite](https://bazzite.gg) and [Bluefin](https://projectbluefin.io). I only include  `virt-install` and a few system utilities. I also allow `nix` installation.
+ILM OS is a collection of custom [bootc](https://bootc-dev.github.io/bootc/) images for development, virtualization, and everyday desktop use.
 
-## Setup
+| Image | Base | Highlights |
+| --- | --- | --- |
+| `ilm-os-bazzite-dx-nvidia` | [Bazzite DX](https://bazzite.gg/) | NVIDIA support, developer tools, and virtualization |
+| `ilm-os-bluefin-dx` | [Bluefin DX](https://projectbluefin.io/) | Developer workstation with virtualization tools |
+| `ilm-os-fedora-bootc` | Fedora Bootc | Niri, DankMaterialShell, developer tools, and virtualization |
 
-First download and install either [Bazzite](https://bazzite.gg) or [Bluefin](https://projectbluefin.io) based on your preferred desktop environment. Bazzite is recommended if you want to use nvidia graphics.
+## Installation
 
-After installation switch to the Bazzite DX Nvidia image with the following command.
-
-```bash
-sudo bootc switch ghcr.io/pervezfunctor/ilm-os-bazzite-dx-nvidia:latest
-```
-
-After reboot, run the following to setup basic tools.
+Install a compatible bootc system, then switch to the image you want. For example, to use the Fedora/Niri image:
 
 ```bash
-  bash -c "$(curl -fsSL https://is.gd/egitif)" -- ublue
+sudo bootc switch ghcr.io/pervezfunctor/ilm-os-fedora-bootc:latest
+sudo systemctl reboot
 ```
 
+Replace `ilm-os-fedora-bootc` with `ilm-os-bazzite-dx-nvidia` or `ilm-os-bluefin-dx` for another variant. Bazzite is recommended for NVIDIA systems.
 
-Or, if you prefer `nix`, you can install nix along with home-manager.
-
-First you need to create a subvolume or a partition for `/nix` and mount it in `/etc/fstab`.
-
-Once you have done that, run the following to install nix and home-manager.
+After rebooting, you can run the optional system setup:
 
 ```bash
-  bash -c "$(curl -fsSL https://is.gd/egitif)" -- bluenix
+bash -c "$(curl -fsSL https://is.gd/egitif)" -- ublue
 ```
 
-You could also clone this repository and build an image or installation ISO yourself. You should have `just` and Podman installed on your Linux system.
+For Nix with Home Manager, first mount a dedicated partition or subvolume at `/nix`, then run:
 
 ```bash
-  git clone https://github.com/pervezfunctor/ilm-os
-  cd ilm-os
-  just build-bazzite
-  just build-iso-bazzite
+bash -c "$(curl -fsSL https://is.gd/egitif)" -- bluenix
 ```
 
-Use [Fedora Media Writer](https://flathub.org/en/apps/org.fedoraproject.MediaWriter) or similar to create a bootable usb drive from the iso.
+## Building locally
 
-## Image variants
+Local builds require Linux, Podman, `just`, and `sudo` access.
 
-The GitHub Actions matrix keeps the existing published image names and `latest`/date tags:
+```bash
+git clone https://github.com/pervezfunctor/ilm-os.git
+cd ilm-os
+just build-fedora
+just build-iso-fedora
+```
 
-- `ghcr.io/pervezfunctor/ilm-os-bazzite-dx-nvidia:latest`
-- `ghcr.io/pervezfunctor/ilm-os-bluefin-dx:latest`
-- `ghcr.io/pervezfunctor/ilm-os-fedora-bootc:latest`
+Replace `fedora` with `bazzite` or `bluefin` to build another variant. Matching QCOW2 recipes are also available, such as `just build-qcow2-fedora`.
 
-The matching local Just recipes are `build-bazzite`, `build-bluefin`, and `build-fedora`. ISO recipes use the corresponding variant-specific Anaconda configuration: `build-iso-bazzite`, `build-iso-bluefin`, and `build-iso-fedora`.
+Shared local defaults and image metadata are stored in `image-template.env`. Files placed under `system_files/` are copied to the same paths in the image root during every build.
 
-The disk-image workflow builds both `qcow2` and `anaconda-iso` for all three variants and selects `iso-bazzite.toml`, `iso-bluefin.toml`, or `iso-fedora.toml` for the matching ISO.
+## Automation
 
-## Build configuration and customization
+GitHub Actions builds and publishes all three container images with `latest`, dated, and immutable commit tags. Published images are rechunked for more reliable updates and signed with Cosign.
 
-`image-template.env` contains the shared image name, source repository name, tag, metadata, and Bootc Image Builder defaults used by `Justfile`. GitHub Actions overrides the image name, base image, and build script for each matrix entry. The Fedora variant continues to use `build_files/build-fedora-bootc.sh`.
+The disk-image workflow can create QCOW2 images and installation ISOs for every variant. Outputs can be downloaded as uniquely named workflow artifacts or uploaded to the configured S3 bucket.
 
-Files placed under `system_files/` are copied into the image root during every variant build. For example, `system_files/etc/example.conf` becomes `/etc/example.conf`; the directory can remain empty when no static overlay is needed.
-
-The publish workflow builds each variant with Just, runs the supported rootful `ostree-rechunk` step, preserves the existing `latest`, date, pull-request, and SHA tag forms, and also adds immutable commit aliases for clean commits. The alternative `chunkah` workflow is available locally with `just rechunk <image> <tag>` for rootless images; run both the build and rechunk commands with `sudo` when using rootful Podman storage.
+Write an ISO to a USB drive with [Fedora Media Writer](https://flathub.org/en/apps/org.fedoraproject.MediaWriter) or a similar tool.
